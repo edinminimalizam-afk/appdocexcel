@@ -1,0 +1,46 @@
+.github/workflows/build-app.yml
+# Builds DocxToExcel.exe (Windows) and DocxToExcel.app (macOS) on GitHub's machines.
+# Put this file at .github/workflows/build-app.yml in a repo that also contains docx_to_excel.py.
+# Then open the repo's "Actions" tab and click "Run workflow" (it also runs on every push).
+# The finished files appear under "Artifacts" at the bottom of the run page.
+
+name: Build app
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: DocxToExcel-Windows
+            path: dist/DocxToExcel.exe
+          - os: macos-latest
+            artifact: DocxToExcel-macOS
+            path: dist/DocxToExcel.app
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install python-docx openpyxl pyinstaller
+
+      - name: Build
+        run: pyinstaller --onefile --windowed --name DocxToExcel docx_to_excel.py
+
+      - name: Zip macOS app
+        if: runner.os == 'macOS'
+        run: cd dist && ditto -c -k --keepParent DocxToExcel.app DocxToExcel.app.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ runner.os == 'macOS' && 'dist/DocxToExcel.app.zip' || matrix.path }}
+
